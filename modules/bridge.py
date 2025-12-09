@@ -1,19 +1,79 @@
 """
 Synthetic bridge generation between B4 and A5 segments
+Implements robust sigmoidal interpolation with variance injection
 """
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline
+from scipy.signal import savgol_filter
 import matplotlib.pyplot as plt
 
 from .config import cfg
+
+
+def make_bridge_segment_sigmoidal(b4_tail: np.ndarray, a5_head: np.ndarray, 
+                                  fs: int, bridge_sec: float, 
+                                  noise_scale: float = 0.15) -> np.ndarray:
+    """
+    Create robust bridge using Sigmoidal interpolation with variance injection.
+    
+    This creates a biologically plausible transition:
+    1. Sigmoid curve (S-shaped) mimics natural saturation behavior
+    2. Variance injection adds realistic "roughness"
+    3. Savitzky-Golay smoothing ensures continuous derivatives
+    
+    Args:
+        b4_tail: Last portion of B4 signal
+        a5_head: First portion of A5 signal
+        fs: Sampling rate (Hz)
+        bridge_sec: Bridge duration (seconds)
+        noise_scale: Scaling factor for variance injection
+        
+    Returns:
+        Bridge signal with smooth sigmoidal transition
+    """
+    n_bridge = int(bridge_sec * fs)
+    
+    # Step 1: Compute boundary statistics from tail/head windows
+    b4_mean = b4_tail.mean()
+    b4_std = b4_tail.std()
+    a5_mean = a5_head.mean()
+    a5_std = a5_head.std()
+    
+    # Step 2: Generate Sigmoid weights (S-curve from 0 to 1)
+    # Range -6 to 6 captures the full sigmoid transition
+    x = np.linspace(-6, 6, n_bridge)
+    sigmoid_weights = 1 / (1 + np.exp(-x))
+    
+    # Step 3: Interpolate means (the "path")
+    bridge_mean = (1 - sigmoid_weights) * b4_mean + sigmoid_weights * a5_mean
+    
+    # Step 4: Interpolate variance (the "texture")
+    # Noise level also transitions smoothly
+    bridge_std = (1 - sigmoid_weights) * b4_std + sigmoid_weights * a5_std
+    
+    # Step 5: Generate synthetic bridge with variance injection
+    # Add Brownian-like noise scaled by local variance
+    noise = np.random.normal(0, 1, n_bridge) * bridge_std * noise_scale
+    bridge_raw = bridge_mean + noise
+    
+    # Step 6: Apply Savitzky-Golay filter to ensure smooth derivatives
+    # This prevents "step function" artifacts at connection points
+    if n_bridge >= 7:  # Need at least window_length points
+        window_length = min(7, n_bridge if n_bridge % 2 == 1 else n_bridge - 1)
+        bridge_smooth = savgol_filter(bridge_raw, window_length=window_length, polyorder=2)
+    else:
+        bridge_smooth = bridge_raw
+    
+    return bridge_smooth
 
 
 def make_bridge_segment(b4_tail: np.ndarray, a5_head: np.ndarray, 
                         fs: int, bridge_sec: float, 
                         noise_scale: float = 0.08) -> np.ndarray:
     """
-    Create smooth bridge between B4 tail and A5 head using cubic interpolation + colored noise
+    Legacy cubic interpolation bridge (kept for backward compatibility)
+    Consider using make_bridge_segment_sigmoidal() instead for more robust results.
     """
     n_bridge = int(bridge_sec * fs)
     
@@ -51,19 +111,31 @@ def make_bridge_segment(b4_tail: np.ndarray, a5_head: np.ndarray,
 
 def combine_with_bridge(b4: pd.DataFrame, a5: pd.DataFrame, 
                         fs: int, bridge_sec: float,
-                        noise_scale: float = 0.08) -> pd.DataFrame:
+                        noise_scale: float = 0.15, 
+                        use_sigmoidal: bool = True) -> pd.DataFrame:
     """
     Concatenate B4, bridge, and A5 with continuous Counter
+    
+    Args:
+        b4: B4 segment dataframe
+        a5: A5 segment dataframe
+        fs: Sampling rate
+        bridge_sec: Bridge duration in seconds
+        noise_scale: Noise scaling factor
+        use_sigmoidal: If True, use robust sigmoidal bridge; if False, use legacy cubic
     """
     k = min(500, len(b4)//4, len(a5)//4)
     
-    bridge_ch1 = make_bridge_segment(b4['Channel1'].iloc[-k:].values,
-                                     a5['Channel1'].iloc[:k].values,
-                                     fs, bridge_sec, noise_scale)
+    # Select bridge generation method
+    bridge_func = make_bridge_segment_sigmoidal if use_sigmoidal else make_bridge_segment
     
-    bridge_ch3 = make_bridge_segment(b4['Channel3'].iloc[-k:].values,
-                                     a5['Channel3'].iloc[:k].values,
-                                     fs, bridge_sec, noise_scale)
+    bridge_ch1 = bridge_func(b4['Channel1'].iloc[-k:].values,
+                             a5['Channel1'].iloc[:k].values,
+                             fs, bridge_sec, noise_scale)
+    
+    bridge_ch3 = bridge_func(b4['Channel3'].iloc[-k:].values,
+                             a5['Channel3'].iloc[:k].values,
+                             fs, bridge_sec, noise_scale)
     
     n_bridge = len(bridge_ch1)
     

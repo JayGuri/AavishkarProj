@@ -16,9 +16,10 @@ class Config:
     beta: Tuple[float, float] = (13, 30)
     gamma: Tuple[float, float] = (30, 40)
     
-    # Bridge parameters
-    bridge_sec: float = 2.0  # Bridge duration (seconds)
+    # Bridge parameters (Robust Sigmoidal Bridge)
+    bridge_sec: float = 10.0  # Bridge duration (seconds) - increased for visibility in PCA
     bridge_noise_scale: float = 0.15  # Noise amplitude (fraction of local std)
+    bridge_use_sigmoidal: bool = True  # Use sigmoidal interpolation (recommended)
     
     # Feature extraction
     win_sec: float = 2.0  # Window length (seconds)
