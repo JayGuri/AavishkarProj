@@ -80,10 +80,14 @@ function App() {
         ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' 
         : 'bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50'
     }`}>
-      {/* PixelBlast Background - More Visible */}
-      <div className={`absolute inset-0 w-full h-full z-0 transition-opacity duration-500 ${
+      {/* PixelBlast Background - More Visible, Starting from Top */}
+      <div className={`fixed top-0 left-0 w-screen h-screen z-0 transition-opacity duration-500 ${
         theme === 'dark' ? 'opacity-70' : 'opacity-60'
-      }`}>
+      }`}
+      style={{
+        margin: 0,
+        padding: 0
+      }}>
         <PixelBlast
           variant="circle"
           pixelSize={5}
@@ -100,7 +104,7 @@ function App() {
           liquidRadius={1.3}
           liquidWobbleSpeed={6}
           speed={0.7}
-          edgeFade={0.2}
+          edgeFade={0}
           transparent
         />
       </div>
