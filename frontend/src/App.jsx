@@ -148,11 +148,15 @@ function App() {
             WebkitBackdropFilter: 'blur(40px) saturate(180%)'
           }}>
             {/* Title */}
-            <h1 className={`text-5xl font-bold text-center mb-3 bg-gradient-to-r bg-clip-text text-transparent transition-all duration-500 ${
+            <h1 className={`text-5xl font-bold text-center mb-3 bg-gradient-to-r bg-clip-text text-transparent transition-all duration-500 leading-tight pb-2 ${
               theme === 'dark' 
                 ? 'from-purple-200 via-pink-200 to-purple-200' 
                 : 'from-indigo-600 via-purple-600 to-indigo-600'
-            }`}>
+            }`}
+            style={{
+              lineHeight: '1.2',
+              paddingBottom: '0.5rem'
+            }}>
               Hunger Detector
             </h1>
             <p className={`text-center mb-8 text-lg ${
@@ -176,9 +180,9 @@ function App() {
                   file:mr-4 file:py-3 file:px-5
                   file:rounded-xl file:border-0
                   file:text-sm file:font-semibold
-                  file:bg-gradient-to-r file:from-indigo-500 file:to-purple-500
+                  file:bg-indigo-500
                   file:text-white file:shadow-lg
-                  hover:file:from-indigo-600 hover:file:to-purple-600
+                  hover:file:bg-indigo-600
                   file:cursor-pointer file:transition-all file:duration-300
                   file:transform file:hover:scale-105
                   cursor-pointer
