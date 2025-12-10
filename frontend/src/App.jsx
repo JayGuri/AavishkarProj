@@ -80,25 +80,27 @@ function App() {
         ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' 
         : 'bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50'
     }`}>
-      {/* PixelBlast Background */}
-      <div className="absolute inset-0 w-full h-full z-0 opacity-30 dark:opacity-20">
+      {/* PixelBlast Background - More Visible */}
+      <div className={`absolute inset-0 w-full h-full z-0 transition-opacity duration-500 ${
+        theme === 'dark' ? 'opacity-70' : 'opacity-60'
+      }`}>
         <PixelBlast
           variant="circle"
-          pixelSize={6}
-          color={theme === 'dark' ? '#B19EEF' : '#6366F1'}
-          patternScale={3}
-          patternDensity={1.2}
-          pixelSizeJitter={0.5}
+          pixelSize={5}
+          color={theme === 'dark' ? '#C084FC' : '#818CF8'}
+          patternScale={2.5}
+          patternDensity={1.5}
+          pixelSizeJitter={0.6}
           enableRipples
-          rippleSpeed={0.4}
-          rippleThickness={0.12}
-          rippleIntensityScale={1.5}
+          rippleSpeed={0.5}
+          rippleThickness={0.15}
+          rippleIntensityScale={2}
           liquid
-          liquidStrength={0.12}
-          liquidRadius={1.2}
-          liquidWobbleSpeed={5}
-          speed={0.6}
-          edgeFade={0.25}
+          liquidStrength={0.15}
+          liquidRadius={1.3}
+          liquidWobbleSpeed={6}
+          speed={0.7}
+          edgeFade={0.2}
           transparent
         />
       </div>
@@ -125,16 +127,21 @@ function App() {
       {/* Main Content */}
       <div className="relative z-10 flex items-center justify-center min-h-screen p-6">
         <div className="w-full max-w-md">
-          {/* Enhanced Glassmorphism Card */}
-          <div className={`backdrop-blur-2xl rounded-3xl shadow-2xl p-8 border transition-all duration-500 ${
+          {/* Enhanced Glassmorphism Card - True Glass Effect */}
+          <div className={`backdrop-blur-3xl rounded-3xl shadow-2xl p-8 border-2 transition-all duration-500 ${
             theme === 'dark'
-              ? 'bg-white/5 border-white/10 shadow-purple-500/10'
-              : 'bg-white/70 border-white/30 shadow-indigo-500/10'
+              ? 'bg-white/5 border-white/20 shadow-purple-500/20'
+              : 'bg-white/40 border-white/40 shadow-indigo-500/20'
           }`}
           style={{
+            background: theme === 'dark'
+              ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)'
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.3) 100%)',
             boxShadow: theme === 'dark' 
-              ? '0 8px 32px 0 rgba(177, 158, 239, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.1)' 
-              : '0 8px 32px 0 rgba(99, 102, 241, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.3)'
+              ? '0 8px 32px 0 rgba(192, 132, 252, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1)' 
+              : '0 8px 32px 0 rgba(99, 102, 241, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.3)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)'
           }}>
             {/* Title */}
             <h1 className={`text-5xl font-bold text-center mb-3 bg-gradient-to-r bg-clip-text text-transparent transition-all duration-500 ${
@@ -171,10 +178,10 @@ function App() {
                   file:cursor-pointer file:transition-all file:duration-300
                   file:transform file:hover:scale-105
                   cursor-pointer
-                  rounded-xl border-2 p-3 transition-all duration-300 ${
+                  rounded-xl border-2 p-3 transition-all duration-300 backdrop-blur-sm ${
                     theme === 'dark'
-                      ? 'text-slate-300 bg-white/5 border-white/20 hover:border-white/30'
-                      : 'text-slate-700 bg-white/50 border-slate-300 hover:border-indigo-400'
+                      ? 'text-slate-300 bg-white/10 border-white/30 hover:border-white/40'
+                      : 'text-slate-700 bg-white/60 border-white/50 hover:border-indigo-400'
                   }`}
               />
               {selectedFile && (
@@ -215,10 +222,10 @@ function App() {
 
             {/* Error Display */}
             {error && (
-              <div className={`mt-6 p-4 rounded-xl border-2 backdrop-blur-sm transition-all duration-300 ${
+              <div className={`mt-6 p-4 rounded-xl border-2 backdrop-blur-md transition-all duration-300 ${
                 theme === 'dark'
-                  ? 'bg-red-500/20 border-red-500/50'
-                  : 'bg-red-100/80 border-red-400/50'
+                  ? 'bg-red-500/30 border-red-500/60'
+                  : 'bg-red-100/90 border-red-400/60'
               }`}>
                 <p className={`text-sm font-medium ${
                   theme === 'dark' ? 'text-red-200' : 'text-red-800'
@@ -230,14 +237,14 @@ function App() {
 
             {/* Result Display */}
             {result && (
-              <div className={`mt-6 p-6 rounded-2xl border-2 backdrop-blur-sm transition-all duration-500 ${
+              <div className={`mt-6 p-6 rounded-2xl border-2 backdrop-blur-md transition-all duration-500 ${
                 result.status === 'hungry'
                   ? theme === 'dark'
-                    ? 'bg-amber-500/20 border-amber-500/50 shadow-amber-500/20'
-                    : 'bg-amber-100/80 border-amber-400/50 shadow-amber-500/10'
+                    ? 'bg-amber-500/30 border-amber-500/60 shadow-amber-500/30'
+                    : 'bg-amber-100/90 border-amber-400/60 shadow-amber-500/20'
                   : theme === 'dark'
-                    ? 'bg-emerald-500/20 border-emerald-500/50 shadow-emerald-500/20'
-                    : 'bg-emerald-100/80 border-emerald-400/50 shadow-emerald-500/10'
+                    ? 'bg-emerald-500/30 border-emerald-500/60 shadow-emerald-500/30'
+                    : 'bg-emerald-100/90 border-emerald-400/60 shadow-emerald-500/20'
               }`}
               style={{
                 animation: 'fadeIn 0.5s ease-in'
