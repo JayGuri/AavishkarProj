@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "three": "^0.158.0",
+    "postprocessing": "^6.35.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
