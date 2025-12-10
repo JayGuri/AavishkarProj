@@ -14,9 +14,71 @@ from .eeg_features import extract_eeg_features
 from .emg_features import extract_emg_features
 
 
+def apply_squelch(feat_df: pd.DataFrame, combined: pd.DataFrame) -> pd.DataFrame:
+    """Apply artifact gating (squelch) to suppress contaminated windows
+    
+    Args:
+        feat_df: Feature dataframe
+        combined: Combined signal dataframe with artifact_energy column
+        
+    Returns:
+        Feature dataframe with squelch_flag and confidence columns
+    """
+    if 'artifact_energy' not in combined.columns or not cfg.squelch_enabled:
+        # No squelch needed
+        feat_df['squelch_flag'] = False
+        feat_df['confidence'] = 1.0
+        return feat_df
+    
+    # Compute median artifact energy
+    median_energy = np.median(combined['artifact_energy'].values)
+    threshold = cfg.squelch_threshold * median_energy
+    
+    # Flag windows with high artifact energy
+    def check_artifact(t_sec):
+        # Convert time to sample index
+        t_samples = int(t_sec * cfg.fs)
+        idx = np.argmin(np.abs(combined['Counter'].values - t_samples))
+        
+        # Get artifact energy at this time point
+        energy = combined.iloc[idx]['artifact_energy']
+        
+        return energy > threshold, energy
+    
+    feat_df['squelch_flag'] = False
+    feat_df['artifact_energy'] = 0.0
+    feat_df['confidence'] = 1.0
+    
+    for i, row in feat_df.iterrows():
+        is_artifact, energy = check_artifact(row['time'])
+        feat_df.at[i, 'squelch_flag'] = is_artifact
+        feat_df.at[i, 'artifact_energy'] = energy
+        
+        # Confidence inversely proportional to artifact energy
+        if is_artifact:
+            feat_df.at[i, 'confidence'] = max(0.1, threshold / (energy + 1e-10))
+        else:
+            feat_df.at[i, 'confidence'] = 1.0
+    
+    n_flagged = feat_df['squelch_flag'].sum()
+    print(f"  Squelch: Flagged {n_flagged}/{len(feat_df)} windows ({n_flagged/len(feat_df)*100:.1f}%)")
+    
+    return feat_df
+
+
 def extract_all_features(combined: pd.DataFrame, fs: int,
                          win_sec: float, step_sec: float) -> pd.DataFrame:
-    """Extract and merge EEG + EMG features with segment labels"""
+    """Extract and merge EEG + EMG features with segment labels
+    
+    Args:
+        combined: Combined signal dataframe
+        fs: Sampling frequency
+        win_sec: Window length in seconds
+        step_sec: Step size in seconds
+        
+    Returns:
+        Feature dataframe with squelch flags if enabled
+    """
     eeg_feat = extract_eeg_features(combined['Channel3'].values,
                                     combined['Counter'].values,
                                     fs, win_sec, step_sec)
@@ -38,12 +100,17 @@ def extract_all_features(combined: pd.DataFrame, fs: int,
     feat_df['time'] = feat_df['time'] / fs
     feat_df['label'] = feat_df['segment'].map(label_map)
     
+    # Apply squelch if enabled
+    if cfg.squelch_enabled:
+        feat_df = apply_squelch(feat_df, combined)
+    
     return feat_df
 
 
 def standardize_features(feat_df: pd.DataFrame) -> Tuple[pd.DataFrame, StandardScaler]:
-    """Standardize features (excluding time, segment, label)"""
-    feat_cols = [c for c in feat_df.columns if c not in ['time', 'segment', 'label']]
+    """Standardize features (excluding time, segment, label, soft_label)"""
+    feat_cols = [c for c in feat_df.columns 
+                 if c not in ['time', 'segment', 'label', 'soft_label', 'label_type']]
     
     scaler = StandardScaler()
     feat_df_std = feat_df.copy()

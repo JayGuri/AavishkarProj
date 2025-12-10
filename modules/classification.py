@@ -4,7 +4,7 @@ Classification models and prediction
 import numpy as np
 import pandas as pd
 from typing import Tuple, Dict, List
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, LeaveOneGroupOut
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
@@ -123,6 +123,177 @@ def train_models(X_train: np.ndarray, y_train: np.ndarray,
         'f1': f1_score(y_test, y_pred_rf, zero_division=0),
         'roc_auc': roc_auc_score(y_test, y_proba_rf)
     }
+    
+    return results
+
+
+def train_models_loso(features_by_subject: Dict[str, pd.DataFrame],
+                     use_reduced_features: bool = True) -> Dict:
+    """Train models using Leave-One-Subject-Out (LOSO) cross-validation
+    
+    This provides unbiased accuracy estimates by testing on entirely unseen subjects.
+    Expected baseline: 60-75% (realistic for generalization across subjects).
+    
+    Args:
+        features_by_subject: Dict mapping subject names to their feature dataframes
+        use_reduced_features: Use only key features to prevent overfitting
+        
+    Returns:
+        Dict with LOSO results for LR and RF models
+    """
+    subject_names = list(features_by_subject.keys())
+    n_subjects = len(subject_names)
+    
+    print(f"\n{'='*70}")
+    print(f"LEAVE-ONE-SUBJECT-OUT CROSS-VALIDATION ({n_subjects} subjects)")
+    print('='*70)
+    
+    # Storage for predictions across all folds
+    all_y_true_lr = []
+    all_y_pred_lr = []
+    all_y_proba_lr = []
+    
+    all_y_true_rf = []
+    all_y_pred_rf = []
+    all_y_proba_rf = []
+    
+    fold_results = []
+    
+    for test_subject in subject_names:
+        print(f"\nFold: Testing on {test_subject}")
+        
+        # Prepare training data (all subjects except test_subject)
+        train_subjects = [s for s in subject_names if s != test_subject]
+        
+        train_dfs = []
+        for subj in train_subjects:
+            df = features_by_subject[subj]
+            # Filter to B4 and A5 only (exclude bridge)
+            df_filtered = df[df['segment'].isin(['B4', 'A5'])].copy()
+            train_dfs.append(df_filtered)
+        
+        train_df = pd.concat(train_dfs, ignore_index=True)
+        
+        # Prepare test data
+        test_df = features_by_subject[test_subject]
+        test_df = test_df[test_df['segment'].isin(['B4', 'A5'])].copy()
+        
+        # Build feature matrices
+        if use_reduced_features:
+            key_features = ['alpha_rel', 'beta_rel', 'emg_rms']
+            feat_cols = [c for c in key_features if c in train_df.columns]
+            if len(feat_cols) == 0:
+                feat_cols = [c for c in train_df.columns 
+                           if c not in ['time', 'segment', 'label', 'soft_label', 'label_type', 'subject_id']]
+        else:
+            feat_cols = [c for c in train_df.columns 
+                        if c not in ['time', 'segment', 'label', 'soft_label', 'label_type', 'subject_id']]
+        
+        X_train = train_df[feat_cols].values
+        y_train = train_df['label'].values
+        
+        X_test = test_df[feat_cols].values
+        y_test = test_df['label'].values
+        
+        print(f"  Train: {len(X_train)} samples from {len(train_subjects)} subjects")
+        print(f"  Test: {len(X_test)} samples from {test_subject}")
+        
+        # Train Logistic Regression
+        lr = LogisticRegression(C=1.0, class_weight='balanced', 
+                               max_iter=1000, random_state=cfg.random_state)
+        lr.fit(X_train, y_train)
+        
+        y_pred_lr = lr.predict(X_test)
+        y_proba_lr = lr.predict_proba(X_test)[:, 1]
+        
+        acc_lr = accuracy_score(y_test, y_pred_lr)
+        
+        # Train Random Forest
+        rf = RandomForestClassifier(n_estimators=100, max_depth=10,
+                                   class_weight='balanced',
+                                   random_state=cfg.random_state)
+        rf.fit(X_train, y_train)
+        
+        y_pred_rf = rf.predict(X_test)
+        y_proba_rf = rf.predict_proba(X_test)[:, 1]
+        
+        acc_rf = accuracy_score(y_test, y_pred_rf)
+        
+        print(f"  LR Accuracy: {acc_lr:.3f}")
+        print(f"  RF Accuracy: {acc_rf:.3f}")
+        
+        # Store predictions
+        all_y_true_lr.extend(y_test)
+        all_y_pred_lr.extend(y_pred_lr)
+        all_y_proba_lr.extend(y_proba_lr)
+        
+        all_y_true_rf.extend(y_test)
+        all_y_pred_rf.extend(y_pred_rf)
+        all_y_proba_rf.extend(y_proba_rf)
+        
+        fold_results.append({
+            'test_subject': test_subject,
+            'lr_accuracy': acc_lr,
+            'rf_accuracy': acc_rf,
+            'n_test': len(y_test)
+        })
+    
+    # Convert to arrays
+    all_y_true_lr = np.array(all_y_true_lr)
+    all_y_pred_lr = np.array(all_y_pred_lr)
+    all_y_proba_lr = np.array(all_y_proba_lr)
+    
+    all_y_true_rf = np.array(all_y_true_rf)
+    all_y_pred_rf = np.array(all_y_pred_rf)
+    all_y_proba_rf = np.array(all_y_proba_rf)
+    
+    # Compute overall metrics
+    results = {
+        'lr': {
+            'y_pred': all_y_pred_lr,
+            'y_proba': all_y_proba_lr,
+            'accuracy': accuracy_score(all_y_true_lr, all_y_pred_lr),
+            'precision': precision_score(all_y_true_lr, all_y_pred_lr, zero_division=0),
+            'recall': recall_score(all_y_true_lr, all_y_pred_lr, zero_division=0),
+            'f1': f1_score(all_y_true_lr, all_y_pred_lr, zero_division=0),
+            'roc_auc': roc_auc_score(all_y_true_lr, all_y_proba_lr),
+            'fold_results': fold_results
+        },
+        'rf': {
+            'y_pred': all_y_pred_rf,
+            'y_proba': all_y_proba_rf,
+            'accuracy': accuracy_score(all_y_true_rf, all_y_pred_rf),
+            'precision': precision_score(all_y_true_rf, all_y_pred_rf, zero_division=0),
+            'recall': recall_score(all_y_true_rf, all_y_pred_rf, zero_division=0),
+            'f1': f1_score(all_y_true_rf, all_y_pred_rf, zero_division=0),
+            'roc_auc': roc_auc_score(all_y_true_rf, all_y_proba_rf),
+            'fold_results': fold_results
+        },
+        'y_test': all_y_true_lr  # Same for both models
+    }
+    
+    print(f"\n{'='*70}")
+    print("LOSO CROSS-VALIDATION RESULTS (Unbiased Generalization)")
+    print('='*70)
+    print(f"\nLogistic Regression:")
+    print(f"  Accuracy:  {results['lr']['accuracy']:.3f}")
+    print(f"  Precision: {results['lr']['precision']:.3f}")
+    print(f"  Recall:    {results['lr']['recall']:.3f}")
+    print(f"  F1-Score:  {results['lr']['f1']:.3f}")
+    print(f"  ROC-AUC:   {results['lr']['roc_auc']:.3f}")
+    
+    print(f"\nRandom Forest:")
+    print(f"  Accuracy:  {results['rf']['accuracy']:.3f}")
+    print(f"  Precision: {results['rf']['precision']:.3f}")
+    print(f"  Recall:    {results['rf']['recall']:.3f}")
+    print(f"  F1-Score:  {results['rf']['f1']:.3f}")
+    print(f"  ROC-AUC:   {results['rf']['roc_auc']:.3f}")
+    
+    print(f"\nPer-Subject Results:")
+    for fold in fold_results:
+        print(f"  {fold['test_subject']}: LR={fold['lr_accuracy']:.3f}, RF={fold['rf_accuracy']:.3f}")
+    
+    print('='*70)
     
     return results
 

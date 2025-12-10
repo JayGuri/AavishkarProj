@@ -17,9 +17,17 @@ class Config:
     gamma: Tuple[float, float] = (30, 40)
     
     # Bridge parameters (Robust Sigmoidal Bridge)
-    bridge_sec: float = 10.0  # Bridge duration (seconds) - increased for visibility in PCA
+    bridge_sec: float = 10.0  # Default bridge duration (seconds) for signal-level bridge
     bridge_noise_scale: float = 0.15  # Noise amplitude (fraction of local std)
     bridge_use_sigmoidal: bool = True  # Use sigmoidal interpolation (recommended)
+
+    # Dynamic feature-bridge parameters (Mahalanobis + Brownian Bridge)
+    dyn_base_sec: float = 5.0   # Base bridge duration (seconds)
+    dyn_alpha: float = 1.0      # Scaling factor for Mahalanobis distance
+    dyn_min_sec: float = 5.0    # Min bridge duration (seconds)
+    dyn_max_sec: float = 20.0   # Max bridge duration (seconds)
+    dyn_tail_windows: int = 20  # N windows from tails/heads to estimate centroids and variance
+    dyn_noise_jitter: float = 0.15  # Jitter scale for Brownian Bridge variance injection
     
     # Feature extraction
     win_sec: float = 2.0  # Window length (seconds)
@@ -41,6 +49,24 @@ class Config:
     # Model
     test_size: float = 0.3
     random_state: int = 42
+    
+    # Phase 1: Medical Validation
+    use_loso: bool = True  # Use Leave-One-Subject-Out cross-validation
+    exclusion_zone_min: float = 30.0  # Exclude first 30 minutes of A5 (post-meal lag)
+    
+    # Phase 2: VMD Signal Processing
+    use_vmd: bool = False  # Use Variational Mode Decomposition (set True when vmdpy installed)
+    vmd_K: int = 5  # Number of VMD modes
+    vmd_alpha: int = 2000  # VMD bandwidth constraint
+    vmd_target_freq: float = 0.05  # Target frequency for physiological mode (Hz)
+    
+    # Phase 2: Artifact Gating (Squelch)
+    squelch_enabled: bool = False  # Enable artifact suppression
+    squelch_threshold: float = 2.5  # Energy threshold (multiples of median)
+    
+    # Phase 3: Bayesian Breakpoints
+    use_bayesian_breakpoints: bool = False  # Use ruptures PELT instead of polynomial
+    pelt_penalty: float = 10.0  # PELT penalty parameter
 
 # Global configuration instance
 cfg = Config()
